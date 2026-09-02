@@ -1,3 +1,4 @@
+```js
 require("dotenv").config();
 
 const express = require("express");
@@ -5,6 +6,7 @@ const fs = require("fs");
 const path = require("path");
 
 const app = express();
+
 app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
@@ -106,6 +108,15 @@ app.post("/api/applications", async (req, res) => {
             });
         }
 
+        if (!BOT_TOKEN || !ADMIN_ID) {
+            console.error("BOT_TOKEN або ADMIN_ID не налаштовані.");
+
+            return res.status(500).json({
+                success: false,
+                message: "Telegram не налаштований на сервері."
+            });
+        }
+
         const applications = getApplications();
 
         const id = generateApplicationId();
@@ -134,7 +145,9 @@ app.post("/api/applications", async (req, res) => {
         saveApplications(applications);
 
 
-        // Формуємо повідомлення для Telegram
+        // =========================
+        // ФОРМУЄМО TELEGRAM
+        // =========================
 
         let message = "";
 
@@ -189,26 +202,59 @@ app.post("/api/applications", async (req, res) => {
         message += `/answer ${id} Ваша відповідь`;
 
 
-        // Відправляємо заявку в Telegram
+        // =========================
+        // ВІДПРАВКА В TELEGRAM
+        // =========================
 
         const telegramResult = await sendTelegram(
-    "sendMessage",
-    {
-        chat_id: ADMIN_ID,
-        text: message
+            "sendMessage",
+            {
+                chat_id: ADMIN_ID,
+                text: message
+            }
+        );
+
+        console.log(
+            "Telegram result:",
+            telegramResult
+        );
+
+        if (!telegramResult.ok) {
+
+            console.error(
+                "Telegram error:",
+                telegramResult
+            );
+
+            return res.status(500).json({
+                success: false,
+                message: "Telegram не прийняв заявку."
+            });
+        }
+
+
+        // =========================
+        // ВІДПОВІДЬ САЙТУ
+        // =========================
+
+        res.json({
+            success: true,
+            id: id
+        });
+
+    } catch (error) {
+
+        console.error(
+            "Application error:",
+            error
+        );
+
+        res.status(500).json({
+            success: false,
+            message: "Помилка сервера."
+        });
+
     }
-);
-
-console.log("Telegram result:", telegramResult);
-
-if (!telegramResult.ok) {
-    console.error("Telegram error:", telegramResult);
-
-    return res.status(500).json({
-        success: false,
-        message: "Telegram не прийняв заявку."
-    });
-}
 
 });
 
@@ -232,7 +278,6 @@ app.get("/api/applications/:id", (req, res) => {
                     item.id.toUpperCase() === id
             );
 
-
         if (!application) {
 
             return res.status(404).json({
@@ -241,7 +286,6 @@ app.get("/api/applications/:id", (req, res) => {
             });
 
         }
-
 
         res.json({
 
@@ -255,10 +299,12 @@ app.get("/api/applications/:id", (req, res) => {
 
         });
 
-
     } catch (error) {
 
-        console.error(error);
+        console.error(
+            "Check application error:",
+            error
+        );
 
         res.status(500).json({
 
@@ -287,9 +333,6 @@ app.post("/telegram/webhook", async (req, res) => {
             return res.sendStatus(200);
         }
 
-
-        // Приймаємо команди тільки від адміністратора
-
         if (
             String(message.chat.id) !==
             String(ADMIN_ID)
@@ -297,29 +340,21 @@ app.post("/telegram/webhook", async (req, res) => {
             return res.sendStatus(200);
         }
 
-
         const text =
             message.text.trim();
-
-
-        // Команда повинна починатися з /answer
 
         if (!text.startsWith("/answer ")) {
             return res.sendStatus(200);
         }
 
-
         const parts =
             text.split(" ");
-
 
         const id =
             parts[1];
 
-
         const answer =
             parts.slice(2).join(" ");
-
 
         if (!id || !answer) {
 
@@ -334,13 +369,10 @@ app.post("/telegram/webhook", async (req, res) => {
             );
 
             return res.sendStatus(200);
-
         }
-
 
         const applications =
             getApplications();
-
 
         const application =
             applications.find(
@@ -348,7 +380,6 @@ app.post("/telegram/webhook", async (req, res) => {
                     item.id.toUpperCase() ===
                     id.toUpperCase()
             );
-
 
         if (!application) {
 
@@ -362,20 +393,15 @@ app.post("/telegram/webhook", async (req, res) => {
             );
 
             return res.sendStatus(200);
-
         }
 
-
-        // Зберігаємо відповідь
-
-        application.answer = answer;
+        application.answer =
+            answer;
 
         application.status =
             "Відповідь надана";
 
-
         saveApplications(applications);
-
 
         await sendTelegram(
             "sendMessage",
@@ -386,6 +412,7 @@ app.post("/telegram/webhook", async (req, res) => {
             }
         );
 
+        res.sendStatus(200);
 
     } catch (error) {
 
@@ -394,10 +421,8 @@ app.post("/telegram/webhook", async (req, res) => {
             error
         );
 
+        res.sendStatus(500);
     }
-
-
-    res.sendStatus(200);
 
 });
 
@@ -406,10 +431,15 @@ app.post("/telegram/webhook", async (req, res) => {
 // ЗАПУСК СЕРВЕРА
 // =========================
 
-app.listen(PORT, "0.0.0.0", () => {
+app.listen(
+    PORT,
+    "0.0.0.0",
+    () => {
 
-    console.log(
-        `FIB Portal running on http://localhost:${PORT}`
-    );
+        console.log(
+            `FIB Portal running on port ${PORT}`
+        );
 
-});
+    }
+);
+```

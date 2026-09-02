@@ -192,40 +192,23 @@ app.post("/api/applications", async (req, res) => {
         // Відправляємо заявку в Telegram
 
         const telegramResult = await sendTelegram(
-            "sendMessage",
-            {
-                chat_id: ADMIN_ID,
-                text: message
-            }
-        );
-
-        console.log(
-            "Telegram result:",
-            telegramResult
-        );
-
-
-        // Відповідь сайту
-
-        res.json({
-            success: true,
-            id: id
-        });
-
-
-    } catch (error) {
-
-        console.error(
-            "Application error:",
-            error
-        );
-
-        res.status(500).json({
-            success: false,
-            message: "Помилка сервера."
-        });
-
+    "sendMessage",
+    {
+        chat_id: ADMIN_ID,
+        text: message
     }
+);
+
+console.log("Telegram result:", telegramResult);
+
+if (!telegramResult.ok) {
+    console.error("Telegram error:", telegramResult);
+
+    return res.status(500).json({
+        success: false,
+        message: "Telegram не прийняв заявку."
+    });
+}
 
 });
 

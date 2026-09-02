@@ -5,6 +5,17 @@ const fs = require("fs");
 const path = require("path");
 
 const app = express();
+app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Content-Type");
+
+    if (req.method === "OPTIONS") {
+        return res.sendStatus(204);
+    }
+
+    next();
+});
 
 const PORT = process.env.PORT || 3000;
 const BOT_TOKEN = process.env.BOT_TOKEN;
@@ -412,7 +423,7 @@ app.post("/telegram/webhook", async (req, res) => {
 // ЗАПУСК СЕРВЕРА
 // =========================
 
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
 
     console.log(
         `FIB Portal running on http://localhost:${PORT}`

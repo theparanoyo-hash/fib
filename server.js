@@ -66,15 +66,15 @@ function saveApplications(applications) {
 
 async function sendTelegram(method, data) {
     const response = await fetch(
-        `https://api.telegram.org/bot${BOT_TOKEN}/${method}`,
-        {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(data)
-        }
-    );
+    `https://api.telegram.org/bot${BOT_TOKEN}/${method}`,
+    {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+    }
+);
 
     return response.json();
 }

@@ -7,6 +7,10 @@ const path = require("path");
 
 const app = express();
 
+const PORT = process.env.PORT || 3000;
+const BOT_TOKEN = process.env.BOT_TOKEN;
+const ADMIN_ID = process.env.ADMIN_ID;
+
 app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
@@ -18,10 +22,6 @@ app.use((req, res, next) => {
 
     next();
 });
-
-const PORT = process.env.PORT || 3000;
-const BOT_TOKEN = process.env.BOT_TOKEN;
-const ADMIN_ID = process.env.ADMIN_ID;
 
 app.use(express.json());
 
@@ -46,9 +46,12 @@ if (!fs.existsSync(DB_FILE)) {
 }
 
 function getApplications() {
-    return JSON.parse(
-        fs.readFileSync(DB_FILE, "utf8")
-    );
+    try {
+        return JSON.parse(fs.readFileSync(DB_FILE, "utf8"));
+    } catch (error) {
+        console.error("Database read error:", error);
+        return [];
+    }
 }
 
 function saveApplications(applications) {
@@ -65,18 +68,21 @@ function saveApplications(applications) {
 // =========================
 
 async function sendTelegram(method, data) {
- const response = await fetch(
-`https://api.telegram.org/bot${BOT_TOKEN}/${method}`,
-{
-   method: "POST",
-    headers: {
-  "Content-Type": "application/json"   
-   },
-     body: JSON.stringify(data)  
-   }
-);
+    const url =
+        "https://api.telegram.org/bot" +
+        BOT_TOKEN +
+        "/" +
+        method;
 
-    return response.json();
+    const response = await fetch(url, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+    });
+
+    return await response.json();
 }
 
 
@@ -96,9 +102,7 @@ function generateApplicationId() {
 // =========================
 
 app.post("/api/applications", async (req, res) => {
-
     try {
-
         const data = req.body;
 
         if (!data.name || !data.motivation) {
@@ -118,11 +122,10 @@ app.post("/api/applications", async (req, res) => {
         }
 
         const applications = getApplications();
-
         const id = generateApplicationId();
 
         const application = {
-            id: id,
+            id,
             type: data.type || "",
             name: data.name || "",
             age: data.age || "",
@@ -141,7 +144,6 @@ app.post("/api/applications", async (req, res) => {
         };
 
         applications.push(application);
-
         saveApplications(applications);
 
 
@@ -152,54 +154,77 @@ app.post("/api/applications", async (req, res) => {
         let message = "";
 
         message += "🆕 НОВА ЗАЯВКА\n\n";
+        message += "📌 Номер: " + id + "\n\n";
 
-        message += `📌 Номер: ${id}\n\n`;
+        message += "👤 Тип: " +
+            (application.type || "Не вказано") +
+            "\n";
 
-        message += `👤 Тип: ${application.type || "Не вказано"}\n`;
-        message += `👤 Ім'я: ${application.name}\n`;
+        message += "👤 Ім'я: " +
+            application.name +
+            "\n";
 
         if (application.age) {
-            message += `🎂 Вік: ${application.age}\n`;
+            message += "🎂 Вік: " +
+                application.age +
+                "\n";
         }
 
         if (application.callsign) {
-            message += `🎖 Позивний: ${application.callsign}\n`;
+            message += "🎖 Позивний: " +
+                application.callsign +
+                "\n";
         }
 
         if (application.position) {
-            message += `💼 Посада: ${application.position}\n`;
+            message += "💼 Посада: " +
+                application.position +
+                "\n";
         }
 
         if (application.currentUnit) {
-            message += `🏢 Поточний підрозділ: ${application.currentUnit}\n`;
+            message += "🏢 Поточний підрозділ: " +
+                application.currentUnit +
+                "\n";
         }
 
         if (application.targetUnit) {
-            message += `🎯 Бажаний підрозділ: ${application.targetUnit}\n`;
+            message += "🎯 Бажаний підрозділ: " +
+                application.targetUnit +
+                "\n";
         }
 
         if (application.unit) {
-            message += `🏢 Підрозділ: ${application.unit}\n`;
+            message += "🏢 Підрозділ: " +
+                application.unit +
+                "\n";
         }
 
         if (application.education) {
-            message += `🎓 Освіта: ${application.education}\n`;
+            message += "🎓 Освіта: " +
+                application.education +
+                "\n";
         }
 
         if (application.experience) {
-            message += `\n📋 Досвід:\n${application.experience}\n`;
+            message += "\n📋 Досвід:\n" +
+                application.experience +
+                "\n";
         }
 
         if (application.skills) {
-            message += `\n🛠 Навички:\n${application.skills}\n`;
+            message += "\n🛠 Навички:\n" +
+                application.skills +
+                "\n";
         }
 
-        message += `\n📝 Мотиваційний лист:\n${application.motivation}\n`;
+        message += "\n📝 Мотиваційний лист:\n" +
+            application.motivation +
+            "\n";
 
         message += "\n━━━━━━━━━━━━━━\n";
-
-        message += `Відповідь:\n`;
-        message += `/answer ${id} Ваша відповідь`;
+        message += "Відповідь:\n";
+        message += "/answer " + id + " Ваша відповідь";
 
 
         // =========================
@@ -214,13 +239,9 @@ app.post("/api/applications", async (req, res) => {
             }
         );
 
-        console.log(
-            "Telegram result:",
-            telegramResult
-        );
+        console.log("Telegram result:", telegramResult);
 
         if (!telegramResult.ok) {
-
             console.error(
                 "Telegram error:",
                 telegramResult
@@ -237,25 +258,22 @@ app.post("/api/applications", async (req, res) => {
         // ВІДПОВІДЬ САЙТУ
         // =========================
 
-        res.json({
+        return res.json({
             success: true,
-            id: id
+            id
         });
 
     } catch (error) {
-
         console.error(
             "Application error:",
             error
         );
 
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             message: "Помилка сервера."
         });
-
     }
-
 });
 
 
@@ -264,58 +282,41 @@ app.post("/api/applications", async (req, res) => {
 // =========================
 
 app.get("/api/applications/:id", (req, res) => {
-
     try {
-
         const applications = getApplications();
 
-        const id =
-            req.params.id.toUpperCase();
+        const id = req.params.id.toUpperCase();
 
-        const application =
-            applications.find(
-                item =>
-                    item.id.toUpperCase() === id
-            );
+        const application = applications.find(
+            item =>
+                String(item.id).toUpperCase() === id
+        );
 
         if (!application) {
-
             return res.status(404).json({
                 success: false,
                 message: "Заявку не знайдено."
             });
-
         }
 
-        res.json({
-
+        return res.json({
             success: true,
-
             id: application.id,
-
             status: application.status,
-
             answer: application.answer
-
         });
 
     } catch (error) {
-
         console.error(
             "Check application error:",
             error
         );
 
-        res.status(500).json({
-
+        return res.status(500).json({
             success: false,
-
             message: "Помилка сервера."
-
         });
-
     }
-
 });
 
 
@@ -324,9 +325,7 @@ app.get("/api/applications/:id", (req, res) => {
 // =========================
 
 app.post("/telegram/webhook", async (req, res) => {
-
     try {
-
         const message = req.body.message;
 
         if (!message || !message.text) {
@@ -340,24 +339,18 @@ app.post("/telegram/webhook", async (req, res) => {
             return res.sendStatus(200);
         }
 
-        const text =
-            message.text.trim();
+        const text = message.text.trim();
 
         if (!text.startsWith("/answer ")) {
             return res.sendStatus(200);
         }
 
-        const parts =
-            text.split(" ");
+        const parts = text.split(" ");
 
-        const id =
-            parts[1];
-
-        const answer =
-            parts.slice(2).join(" ");
+        const id = parts[1];
+        const answer = parts.slice(2).join(" ");
 
         if (!id || !answer) {
-
             await sendTelegram(
                 "sendMessage",
                 {
@@ -371,35 +364,31 @@ app.post("/telegram/webhook", async (req, res) => {
             return res.sendStatus(200);
         }
 
-        const applications =
-            getApplications();
+        const applications = getApplications();
 
-        const application =
-            applications.find(
-                item =>
-                    item.id.toUpperCase() ===
-                    id.toUpperCase()
-            );
+        const application = applications.find(
+            item =>
+                String(item.id).toUpperCase() ===
+                String(id).toUpperCase()
+        );
 
         if (!application) {
-
             await sendTelegram(
                 "sendMessage",
                 {
                     chat_id: ADMIN_ID,
                     text:
-                        `❌ Заявку ${id} не знайдено.`
+                        "❌ Заявку " +
+                        id +
+                        " не знайдено."
                 }
             );
 
             return res.sendStatus(200);
         }
 
-        application.answer =
-            answer;
-
-        application.status =
-            "Відповідь надана";
+        application.answer = answer;
+        application.status = "Відповідь надана";
 
         saveApplications(applications);
 
@@ -408,38 +397,36 @@ app.post("/telegram/webhook", async (req, res) => {
             {
                 chat_id: ADMIN_ID,
                 text:
-                    `✅ Відповідь для ${application.id} збережена.`
+                    "✅ Відповідь для " +
+                    application.id +
+                    " збережена."
             }
         );
 
-        res.sendStatus(200);
+        return res.sendStatus(200);
 
     } catch (error) {
-
         console.error(
             "Webhook error:",
             error
         );
 
-        res.sendStatus(500);
+        return res.sendStatus(500);
     }
-
 });
 
 
 // =========================
-// ЗАПУСК СЕРВЕРА
+// ЗАПУСК
 // =========================
 
 app.listen(
     PORT,
     "0.0.0.0",
     () => {
-
         console.log(
-            `FIB Portal running on port ${PORT}`
+            "FIB Portal running on port " + PORT
         );
-
     }
 );
 ```
